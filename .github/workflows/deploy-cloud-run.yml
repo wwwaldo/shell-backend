@@ -4,7 +4,8 @@
 # 1. Enable APIs: Cloud Run, Artifact Registry
 # 2. Create service account, grant roles, create key
 # 3. Add GitHub secret: GCP_SA_KEY (service account JSON)
-# 4. Add GitHub vars: GCP_PROJECT_ID, GCP_REGION
+# 4. Add GitHub var (optional): GCP_REGION (default: us-central1)
+#    Project ID comes from the service account - no var needed
 
 name: Deploy to Cloud Run
 
@@ -44,7 +45,7 @@ jobs:
         id: build
         run: |
           REGION="${{ vars.GCP_REGION || 'us-central1' }}"
-          PROJECT="${{ vars.GCP_PROJECT_ID }}"
+          PROJECT="${GCP_PROJECT}"
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${GITHUB_SHA}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
@@ -57,7 +58,7 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           region: ${{ vars.GCP_REGION || 'us-central1' }}
           image: ${{ steps.build.outputs.image }}
-          project_id: ${{ vars.GCP_PROJECT_ID }}
+          project_id: ${{ steps.auth.outputs.project_id }}
 
       - name: Output URL
         run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
