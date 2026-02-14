@@ -1,6 +1,6 @@
 # GCP Deployment Guide
 
-This guide covers deploying the Navigator Chat backend to Google Cloud Platform.
+This guide covers deploying the Shell Chat backend to Google Cloud Platform.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ This guide covers deploying the Navigator Chat backend to Google Cloud Platform.
 
 ## GitHub Actions: Auto-deploy on push
 
-A workflow in `.github/workflows/deploy-backend-cloud-run.yml` builds and deploys to Cloud Run when you push to `main` (and `shell-backend/` changes).
+**Every push to `main` triggers a redeploy.** The workflow in `.github/workflows/deploy-cloud-run.yml` builds the Docker image, pushes to Artifact Registry, and deploys to Cloud Run.
 
 ### Setup
 
@@ -21,23 +21,41 @@ A workflow in `.github/workflows/deploy-backend-cloud-run.yml` builds and deploy
    gcloud services enable run.googleapis.com artifactregistry.googleapis.com
    ```
 
-2. **Create Artifact Registry repo** (see Option 1 below).
+2. **Create Artifact Registry repo** (first time only):
+   ```bash
+   gcloud artifacts repositories create shell-chat \
+     --repository-format=docker \
+     --location=us-central1 \
+     --description="Shell Chat images"
+   ```
 
-3. **Choose auth method:**
+3. **Create service account and key:**
 
-   **A) Workload Identity Federation (recommended, no keys):**
-   - Follow [Google’s WIF setup for GitHub](https://github.com/google-github-actions/auth#setting-up-workload-identity-federation)
-   - Create a service account with: `roles/run.admin`, `roles/artifactregistry.writer`, `roles/iam.serviceAccountUser`
-   - Add GitHub **secrets**: `WIF_PROVIDER`, `WIF_SERVICE_ACCOUNT`
-   - Add GitHub **vars**: `GCP_PROJECT_ID`, `GCP_REGION` (e.g. `us-central1`)
+   - Create a service account with: `roles/run.admin`, `roles/artifactregistry.writer`, `roles/iam.serviceAccountUser`, `roles/iam.serviceAccountTokenCreator` (on itself)
+   - Download JSON key, add as GitHub **secret**: `GCP_SA_KEY`
 
-   **B) Service account key (simpler):**
-   - Create a service account with the roles above, download JSON key
-   - Add GitHub **secret**: `GCP_SA_KEY` = contents of the JSON file
-   - In the workflow, comment out the WIF `with:` block and use `credentials_json: ${{ secrets.GCP_SA_KEY }}`
-   - Add GitHub **vars**: `GCP_PROJECT_ID`, `GCP_REGION`
+4. **Add GitHub secrets:** `GCP_SA_KEY`, `TOGETHER_API_KEY`
 
-4. **First deploy:** Run the initial deploy manually (Option 1) so Cloud Run has secrets (Firebase, Together API key) configured. After that, GitHub Actions will redeploy on each push.
+5. **Add GitHub vars (optional):** `GCP_REGION` (default: us-central1), `FIREBASE_PROJECT_ID` (default: shell-chat-3b8d2)
+
+6. **Allow public access** (one-time, if not in workflow):
+   ```bash
+   gcloud run services add-iam-policy-binding shell-chat-backend \
+     --region=us-central1 \
+     --member="allUsers" \
+     --role="roles/run.invoker"
+   ```
+
+### Production environment
+
+The workflow sets these env vars on Cloud Run:
+
+| Variable | Source | Purpose |
+|----------|--------|---------|
+| `FIREBASE_PROJECT_ID` | GitHub var or default | Firebase Admin SDK project for token verification |
+| `TOGETHER_API_KEY` | GitHub secret | Together AI inference |
+
+**Firebase credentials:** For token verification, you also need the Firebase service account JSON. Mount it via Secret Manager and set `GOOGLE_APPLICATION_CREDENTIALS` to the mount path. Do this manually in the Cloud Run console or via a one-time `gcloud run deploy` with `--set-secrets`.
 
 ### Cost
 
@@ -62,17 +80,17 @@ export REGION=us-central1
 
 # Build and push to Artifact Registry
 gcloud auth configure-docker ${REGION}-docker.pkg.dev
-docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/navigator-chat/backend:latest .
-docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/navigator-chat/backend:latest
+docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/shell-chat/shell-chat-backend:latest .
+docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/shell-chat/shell-chat-backend:latest
 ```
 
 ### 2. Create Artifact Registry repo (first time only)
 
 ```bash
-gcloud artifacts repositories create navigator-chat \
+gcloud artifacts repositories create shell-chat \
   --repository-format=docker \
   --location=${REGION} \
-  --description="Navigator Chat images"
+  --description="Shell Chat images"
 ```
 
 ### 3. Store secrets in Secret Manager
@@ -88,8 +106,8 @@ echo -n "your-together-api-key" | gcloud secrets create together-api-key --data-
 ### 4. Deploy to Cloud Run
 
 ```bash
-gcloud run deploy navigator-chat-backend \
-  --image ${REGION}-docker.pkg.dev/${PROJECT_ID}/navigator-chat/backend:latest \
+gcloud run deploy shell-chat-backend \
+  --image ${REGION}-docker.pkg.dev/${PROJECT_ID}/shell-chat/shell-chat-backend:latest \
   --region ${REGION} \
   --platform managed \
   --allow-unauthenticated \
@@ -104,7 +122,7 @@ gcloud run deploy navigator-chat-backend \
 
 ### 5. Update frontend
 
-Point `VITE_API_URL` to your Cloud Run URL (e.g. `https://navigator-chat-backend-xxxxx-uc.a.run.app`).
+Point `VITE_API_URL` to your Cloud Run URL (e.g. `https://shell-chat-backend-xxxxx-uc.a.run.app`). See the frontend repo's `DEPLOYMENT.md` for deploying the frontend.
 
 ---
 
@@ -127,16 +145,16 @@ Use Cloud Build to build and deploy on push:
 # cloudbuild.yaml (in backend root)
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${REGION}-docker.pkg.dev/${PROJECT_ID}/navigator-chat/backend:$SHORT_SHA', '.']
+    args: ['build', '-t', '${REGION}-docker.pkg.dev/${PROJECT_ID}/shell-chat/shell-chat-backend:$SHORT_SHA', '.']
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '${REGION}-docker.pkg.dev/${PROJECT_ID}/navigator-chat/backend:$SHORT_SHA']
+    args: ['push', '${REGION}-docker.pkg.dev/${PROJECT_ID}/shell-chat/shell-chat-backend:$SHORT_SHA']
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - run
       - deploy
-      - navigator-chat-backend
-      - --image=${REGION}-docker.pkg.dev/${PROJECT_ID}/navigator-chat/backend:$SHORT_SHA
+      - shell-chat-backend
+      - --image=${REGION}-docker.pkg.dev/${PROJECT_ID}/shell-chat/shell-chat-backend:$SHORT_SHA
       - --region=${REGION}
 ```
 
@@ -158,11 +176,11 @@ For more control, multi-service setups, or custom networking:
 ## Local Docker run
 
 ```bash
-docker build -t navigator-backend .
+docker build -t shell-backend .
 docker run -p 8000:8000 \
   -e FIREBASE_PROJECT_ID=your-project \
   -e TOGETHER_API_KEY=your-key \
   -v $(pwd)/firebase-service-account.json:/secrets/firebase.json \
   -e GOOGLE_APPLICATION_CREDENTIALS=/secrets/firebase.json \
-  navigator-backend
+  shell-backend
 ```

@@ -79,9 +79,18 @@ app = FastAPI(title="Navigator Chat API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+        "https://shell-chat-3b8d2.web.app",
+        "https://shell-chat-3b8d2.firebaseapp.com",
+    ],
+    allow_origin_regex=r"^https://[a-z0-9-]+\.(web\.app|firebaseapp\.com)$",
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    allow_credentials=True,
 )
 
 
