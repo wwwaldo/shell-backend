@@ -2,7 +2,17 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
 .env
+.env.*
 *.db
 navigator.db
 firebase-service-account.json
+.git/
+.gitignore
+*.md
+tests/
+cli.py
+.pytest_cache/
+.coverage
+htmlcov/

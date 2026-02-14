@@ -21,6 +21,16 @@ Firebase Admin SDK needs credentials. Use one of:
 1. **Service account JSON**: Set `FIREBASE_CREDENTIALS_PATH` or `GOOGLE_APPLICATION_CREDENTIALS` to the path of your Firebase service account JSON file.
 2. **gcloud default**: Run `gcloud auth application-default login` to use your user credentials.
 
+## Docker
+
+```bash
+# Build and run locally
+docker build -t navigator-backend .
+docker run -p 8000:8000 -e FIREBASE_PROJECT_ID=... -e TOGETHER_API_KEY=... navigator-backend
+```
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for GCP Cloud Run deployment.
+
 ## Run
 
 ```bash

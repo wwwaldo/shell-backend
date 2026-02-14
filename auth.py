@@ -1,5 +1,6 @@
 """Firebase auth middleware and token verification."""
 
+import logging
 import os
 import firebase_admin
 from firebase_admin import credentials, auth
@@ -53,6 +54,7 @@ async def get_current_uid(request: Request) -> str:
             raise ValueError("No uid in token")
         return uid
     except Exception as e:
+        logging.warning("Firebase token verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "invalid_token", "message": str(e) or "Invalid or expired token"}},

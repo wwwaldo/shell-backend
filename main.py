@@ -29,6 +29,10 @@ class ChatRequest(BaseModel):
     message: str
 
 
+class AnthropicKeyRequest(BaseModel):
+    api_key: str
+
+
 class MessageResponse(BaseModel):
     id: str
     role: str
@@ -76,7 +80,7 @@ app = FastAPI(title="Navigator Chat API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -169,6 +173,27 @@ async def health():
     return {"status": "ok"}
 
 
+# --- Settings (stub: backend uses Together AI, no user API key needed) ---
+
+
+@app.get("/settings")
+async def get_settings(uid: str = Depends(get_current_uid)):
+    """Stub: always returns anthropic_key_set=true since backend uses Together AI."""
+    return {"anthropic_key_set": True, "anthropic_key_preview": None}
+
+
+@app.put("/settings/anthropic-key")
+async def update_anthropic_key(body: AnthropicKeyRequest, uid: str = Depends(get_current_uid)):
+    """Stub: no-op, backend uses Together AI."""
+    return {"anthropic_key_set": True, "anthropic_key_preview": None}
+
+
+@app.delete("/settings/anthropic-key", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_anthropic_key(uid: str = Depends(get_current_uid)):
+    """Stub: no-op, backend uses Together AI."""
+    pass
+
+
 @app.get("/conversations")
 async def list_conversations(uid: str = Depends(get_current_uid)):
     """List user's conversations, sorted by updated_at desc."""
@@ -179,16 +204,18 @@ async def list_conversations(uid: str = Depends(get_current_uid)):
             .order_by(Conversation.updated_at.desc())
             .all()
         )
-        return [
-            {
-                "id": c.id,
-                "title": c.title,
-                "created_at": c.created_at,
-                "updated_at": c.updated_at,
-                "message_count": _message_count(db, c.id),
-            }
-            for c in convs
-        ]
+        return {
+            "conversations": [
+                {
+                    "id": c.id,
+                    "title": c.title,
+                    "created_at": c.created_at,
+                    "updated_at": c.updated_at,
+                    "message_count": _message_count(db, c.id),
+                }
+                for c in convs
+            ],
+        }
 
 
 @app.post("/conversations", status_code=status.HTTP_201_CREATED)
