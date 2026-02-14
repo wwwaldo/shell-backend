@@ -1,0 +1,63 @@
+# Build and deploy to Google Cloud Run on push to main
+#
+# Setup:
+# 1. Enable APIs: Cloud Run, Artifact Registry
+# 2. Create service account, grant roles, create key
+# 3. Add GitHub secret: GCP_SA_KEY (service account JSON)
+# 4. Add GitHub vars: GCP_PROJECT_ID, GCP_REGION
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  SERVICE_NAME: navigator-chat-backend
+  REPOSITORY: navigator-chat
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: access_token
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          REGION="${{ vars.GCP_REGION || 'us-central1' }}"
+          echo "${{ steps.auth.outputs.access_token }}" | docker login -u oauth2accesstoken --password-stdin "${REGION}-docker.pkg.dev"
+
+      - name: Build and Push
+        id: build
+        run: |
+          REGION="${{ vars.GCP_REGION || 'us-central1' }}"
+          PROJECT="${{ vars.GCP_PROJECT_ID }}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${GITHUB_SHA}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ vars.GCP_REGION || 'us-central1' }}
+          image: ${{ steps.build.outputs.image }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Output URL
+        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
