@@ -15,8 +15,8 @@ on:
   workflow_dispatch:
 
 env:
-  SERVICE_NAME: navigator-chat-backend
-  REPOSITORY: navigator-chat
+  SERVICE_NAME: shell-chat-backend
+  REPOSITORY: shell-chat
 
 jobs:
   deploy:
