@@ -161,6 +161,11 @@ def _message_count(db, conv_id: str) -> int:
     return db.query(Message).filter(Message.conversation_id == conv_id).count()
 
 
+def _format_utc(dt: datetime) -> str:
+    """Format UTC datetime as ISO 8601 with Z suffix for correct JS parsing."""
+    return dt.isoformat() + "Z" if dt.tzinfo is None else dt.isoformat()
+
+
 def _title_from_first_message(text: str) -> str:
     """First ~60 chars or first sentence."""
     text = text.strip()
@@ -219,8 +224,8 @@ async def list_conversations(uid: str = Depends(get_current_uid)):
                 {
                     "id": c.id,
                     "title": c.title,
-                    "created_at": c.created_at,
-                    "updated_at": c.updated_at,
+                    "created_at": _format_utc(c.created_at),
+                    "updated_at": _format_utc(c.updated_at),
                     "message_count": _message_count(db, c.id),
                 }
                 for c in convs
@@ -240,8 +245,8 @@ async def create_conversation(uid: str = Depends(get_current_uid)):
         return {
             "id": conv.id,
             "title": None,
-            "created_at": conv.created_at,
-            "updated_at": conv.updated_at,
+            "created_at": _format_utc(conv.created_at),
+            "updated_at": _format_utc(conv.updated_at),
             "message_count": 0,
         }
 
@@ -259,7 +264,7 @@ async def list_messages(conv_id: str, uid: str = Depends(get_current_uid)):
         )
         return {
             "messages": [
-                {"id": m.id, "role": m.role, "content": m.content, "created_at": m.created_at}
+                {"id": m.id, "role": m.role, "content": m.content, "created_at": _format_utc(m.created_at)}
                 for m in messages
             ]
         }
@@ -316,13 +321,14 @@ async def chat(conv_id: str, body: ChatRequest, uid: str = Depends(get_current_u
             content=assistant_content,
         )
         db.add(assistant_msg)
+        db.flush()  # Populate created_at default before reading
         conv.updated_at = datetime.utcnow()
 
         return {
             "id": assistant_msg_id,
             "role": "assistant",
             "content": assistant_content,
-            "created_at": assistant_msg.created_at,
+            "created_at": _format_utc(assistant_msg.created_at),
         }
 
 
