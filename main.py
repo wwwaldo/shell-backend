@@ -86,6 +86,7 @@ app.add_middleware(
         "http://127.0.0.1:4173",
         "https://shell-chat-3b8d2.web.app",
         "https://shell-chat-3b8d2.firebaseapp.com",
+        "https://chat.getnavigator.app",
     ],
     allow_origin_regex=r"^https://[a-z0-9-]+\.(web\.app|firebaseapp\.com)$",
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
