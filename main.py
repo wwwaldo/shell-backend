@@ -305,7 +305,7 @@ async def chat(conv_id: str, body: ChatRequest, uid: str = Depends(get_current_u
         # 4 & 5. Call Together AI
         model = user.adapter_id if user.adapter_id else None
         try:
-            assistant_content = chat_completion(history, model=model)
+            assistant_content = await chat_completion(history, model=model)
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

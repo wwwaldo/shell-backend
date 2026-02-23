@@ -1,7 +1,7 @@
 """API endpoint tests."""
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 from tests.conftest import TEST_UID
 
@@ -81,7 +81,7 @@ class TestMessages:
 class TestChat:
     """POST /conversations/:id/chat - send message, get LLM response."""
 
-    @patch("main.chat_completion")
+    @patch("main.chat_completion", new_callable=AsyncMock)
     def test_chat_returns_assistant_message(self, mock_chat, client, auth_headers):
         mock_chat.return_value = "Hello! How can I help?"
         create = client.post("/conversations", headers=auth_headers)
@@ -105,7 +105,7 @@ class TestChat:
         assert history[0]["role"] == "user"
         assert history[0]["content"] == "Hi there"
 
-    @patch("main.chat_completion")
+    @patch("main.chat_completion", new_callable=AsyncMock)
     def test_chat_sets_conversation_title_from_first_message(self, mock_chat, client, auth_headers):
         mock_chat.return_value = "Sure!"
         create = client.post("/conversations", headers=auth_headers)
@@ -122,7 +122,7 @@ class TestChat:
         assert len(convs) == 1
         assert convs[0]["title"] == "What is the capital of France?"
 
-    @patch("main.chat_completion")
+    @patch("main.chat_completion", new_callable=AsyncMock)
     def test_chat_404_for_missing_conversation(self, mock_chat, client, auth_headers):
         r = client.post(
             "/conversations/conv_nonexistent/chat",
@@ -132,7 +132,7 @@ class TestChat:
         assert r.status_code == 404
         mock_chat.assert_not_called()
 
-    @patch("main.chat_completion")
+    @patch("main.chat_completion", new_callable=AsyncMock)
     def test_chat_inference_error_returns_502(self, mock_chat, client, auth_headers):
         mock_chat.side_effect = Exception("Together API unavailable")
         create = client.post("/conversations", headers=auth_headers)
