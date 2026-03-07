@@ -29,10 +29,6 @@ class ChatRequest(BaseModel):
     message: str
 
 
-class AnthropicKeyRequest(BaseModel):
-    api_key: str
-
-
 class MessageResponse(BaseModel):
     id: str
     role: str
@@ -186,27 +182,6 @@ def _title_from_first_message(text: str) -> str:
 async def health():
     """Health check (no auth)."""
     return {"status": "ok"}
-
-
-# --- Settings (stub: backend uses Together AI, no user API key needed) ---
-
-
-@app.get("/settings")
-async def get_settings(uid: str = Depends(get_current_uid)):
-    """Stub: always returns anthropic_key_set=true since backend uses Together AI."""
-    return {"anthropic_key_set": True, "anthropic_key_preview": None}
-
-
-@app.put("/settings/anthropic-key")
-async def update_anthropic_key(body: AnthropicKeyRequest, uid: str = Depends(get_current_uid)):
-    """Stub: no-op, backend uses Together AI."""
-    return {"anthropic_key_set": True, "anthropic_key_preview": None}
-
-
-@app.delete("/settings/anthropic-key", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_anthropic_key(uid: str = Depends(get_current_uid)):
-    """Stub: no-op, backend uses Together AI."""
-    pass
 
 
 @app.get("/conversations")

@@ -1,4 +1,4 @@
-"""SQLite database setup and models."""
+"""Database setup and models (PostgreSQL in production, SQLite for local dev)."""
 
 import os
 from datetime import datetime
@@ -7,8 +7,16 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, Session, sessionmaker
 
+DATABASE_URL = os.environ.get("DATABASE_URL")
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "./navigator.db")
-engine = create_engine(f"sqlite:///{DATABASE_PATH}", connect_args={"check_same_thread": False})
+
+if DATABASE_URL:
+    engine = create_engine(DATABASE_URL)
+else:
+    engine = create_engine(
+        f"sqlite:///{DATABASE_PATH}",
+        connect_args={"check_same_thread": False},
+    )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

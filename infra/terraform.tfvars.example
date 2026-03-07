@@ -1,0 +1,6 @@
+project_id          = "navigator-backend-prod"
+region              = "us-central1"
+firebase_project_id = "shell-chat-3b8d2"
+
+# Set via TF_VAR_together_api_key env var or -var flag instead of committing here
+# together_api_key = ""

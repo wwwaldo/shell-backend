@@ -1,11 +1,12 @@
-# Build and deploy to Google Cloud Run on push to main
+# Build, push image, and update Cloud Run service on push to main.
+#
+# Infrastructure (Cloud SQL, secrets, service config) is managed by Terraform
+# in infra/. This workflow only rolls out new code by updating the container image.
 #
 # Setup:
-# 1. Enable APIs: Cloud Run, Artifact Registry
-# 2. Create service account, grant roles, create key
-# 3. Add GitHub secrets: GCP_SA_KEY (service account JSON), TOGETHER_API_KEY
-# 4. Add GitHub vars (optional): GCP_REGION (default: us-central1), FIREBASE_PROJECT_ID
-#    Project ID comes from the service account - no var needed
+# 1. Run `terraform apply` in infra/ to create all GCP resources (one-time)
+# 2. Add GitHub secrets: GCP_SA_KEY (service account JSON)
+# 3. Add GitHub vars (optional): GCP_REGION (default: us-central1)
 
 name: Deploy to Cloud Run
 
@@ -45,25 +46,21 @@ jobs:
         id: build
         run: |
           REGION="${{ vars.GCP_REGION || 'us-central1' }}"
-          PROJECT="${GCP_PROJECT}"
+          PROJECT="${{ steps.auth.outputs.project_id }}"
           IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${GITHUB_SHA}"
           docker build -t "$IMAGE" .
           docker push "$IMAGE"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Cloud Run
-        id: deploy
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.SERVICE_NAME }}
-          region: ${{ vars.GCP_REGION || 'us-central1' }}
-          image: ${{ steps.build.outputs.image }}
-          project_id: ${{ steps.auth.outputs.project_id }}
-          env_vars: |
-            FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID || 'shell-chat-3b8d2' }}
-            TOGETHER_API_KEY=${{ secrets.TOGETHER_API_KEY }}
-          env_vars_update_strategy: merge
-          flags: --allow-unauthenticated
+      - name: Update Cloud Run image
+        run: |
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --region ${{ vars.GCP_REGION || 'us-central1' }} \
+            --image ${{ steps.build.outputs.image }}
 
       - name: Output URL
-        run: echo "Deployed to ${{ steps.deploy.outputs.url }}"
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ vars.GCP_REGION || 'us-central1' }} \
+            --format 'value(status.url)')
+          echo "Deployed to ${URL}"
